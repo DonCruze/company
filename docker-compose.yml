@@ -1,0 +1,43 @@
+version: '3.2'
+services:
+  database:
+    platform: linux/x86_64
+    container_name: company
+    image: "postgres"
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=company_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - database-data:/var/lib/postgres_company/data/ # persist data even if container shuts down
+    networks:
+      network:
+        ipv4_address: 10.10.0.177
+  backend:
+    build:
+      context: ./
+    restart: always
+    environment:
+      - DBIP=10.10.0.177
+    ports:
+      - "8070:8070"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - database
+    networks:
+      - network
+
+volumes:
+  database-data: # named volumes can be managed easier using docker-compose
+
+networks:
+  network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.0.0/16
+          gateway: 10.10.0.1

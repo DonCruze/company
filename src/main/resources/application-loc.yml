@@ -1,0 +1,17 @@
+server:
+  port: 8070
+
+spring:
+  application.name: company
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://${DBIP:localhost}:5432/company_db
+    username: postgres
+    password: postgres
+
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    generate-ddl: true
+
