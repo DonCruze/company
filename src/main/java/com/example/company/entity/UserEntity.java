@@ -1,12 +1,17 @@
 package com.example.company.entity;
 
 import com.sun.istack.NotNull;
+import com.vladmihalcea.hibernate.type.json.JsonType;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Type;
+import org.hibernate.annotations.TypeDef;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import javax.persistence.*;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 @Entity(name = "users")
 @Setter
@@ -15,8 +20,9 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"userName","state"}),
+        @UniqueConstraint(columnNames = {"userName","state","partyName"}),
 })
+@TypeDef(name = "json", typeClass = JsonType.class)
 public class UserEntity {
 
     @Id
@@ -28,9 +34,14 @@ public class UserEntity {
     private Date updatedAt;
     @NotNull
     private String userName;
+    private String partyName;
     private Integer state;
     private Long money;
-    private Long needTo = 0L;
-    private Long needGive = 0L;
+    @Type(type = "json")
+    @Column(columnDefinition = "json")
+    private Map<String, Long> needTo = new HashMap<>();
+    @Type(type = "json")
+    @Column(columnDefinition = "json")
+    private Map<String, Long> needGive = new HashMap<>();
 
 }

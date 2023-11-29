@@ -11,5 +11,7 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
 
     List<UserEntity> findAllByState(Integer state);
-    Optional<UserEntity> findFirstByUserName(String userName);
+    List<UserEntity> findAllByStateAndPartyName(Integer state,String partyName);
+
+    Optional<UserEntity> findFirstByUserNameAndPartyName(String userName, String partyName);
 }

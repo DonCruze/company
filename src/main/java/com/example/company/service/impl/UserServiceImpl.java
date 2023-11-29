@@ -11,10 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -23,44 +20,99 @@ public class UserServiceImpl implements UserService {
     private final UserRepository repository;
 
     @Override
-    public ResponseEntity<?> getBalance() {
+    public ResponseEntity<?> getBalanceParty(String partyName) {
 
-        List<UserEntity> users = repository.findAllByState(1);
+        return ResponseEntity.ok(getBalance(partyName));
+    }
 
-        long needOrGet;
+    public UserResponse getBalance(String partyName){
+        List<UserEntity> users = repository.findAllByStateAndPartyName(1, partyName);
 
         if (users.isEmpty()) {
-            return ResponseEntity.ok(Collections.emptyList());
+            throw new RuntimeException("User list is empty");
         }
 
         long totalMoney = users.stream().mapToLong(UserEntity::getMoney).sum();
         long forAll = totalMoney / users.size();
 
-        for (UserEntity e : users) {
-            needOrGet = e.getMoney() - forAll;
-            long needTo = Math.max(0, needOrGet);
-            long  needGive = Math.max(0, -needOrGet);
+        List<UserDto> userDtos = new ArrayList<>();
 
-            e.setNeedGive(needGive);
-            e.setNeedTo(needTo);
+        for (UserEntity e : users) {
+            long needOrGet = e.getMoney() - forAll;
+            long moneyNeed = Math.max(0, needOrGet);
+            long moneyGive = Math.max(0, -needOrGet);
+
+            List<String> usersToGive = users.stream()
+                    .filter(x -> moneyGive != 0 && (x.getMoney() - forAll) > 0)
+                    .map(UserEntity::getUserName)
+                    .toList();
+
+            Map<String, Long> needGiveMap = new HashMap<>();
+            if (moneyGive == forAll) {
+                long share = moneyGive / usersToGive.size();
+                usersToGive.forEach(username -> needGiveMap.put(username, share));
+            } else {
+                usersToGive.forEach(username -> needGiveMap.put(username, Math.min(moneyGive, forAll)));
+            }
+
+            List<String> usersToGet = users.stream()
+                    .filter(x -> moneyNeed != 0 && (x.getMoney() - forAll) < 0)
+                    .map(UserEntity::getUserName)
+                    .toList();
+
+            Map<String, Long> needToMap = new HashMap<>();
+            for (String username : usersToGet) {
+                long userMoney = forAll - users.stream().filter(u -> u.getUserName().equals(username)).findFirst().map(UserEntity::getMoney).orElse(0L);
+                if (userMoney == forAll) {
+                    userMoney = e.getMoney() - forAll;
+                }
+                long share = Math.min(userMoney, forAll);
+                needToMap.put(username, share);
+            }
+
+            UserDto userDto = new UserDto();
+            userDto.setUserName(e.getUserName());
+            userDto.setGiven(e.getMoney());
+            userDto.setNeedTo(needToMap);
+            userDto.setNeedGive(needGiveMap);
+
+            userDtos.add(userDto);
         }
 
         repository.saveAll(users);
 
-        return ResponseEntity.ok(new UserResponse(forAll,entitiesToDtos(users)));
+        return new UserResponse(partyName, forAll, userDtos);
+    }
+
+    @Override
+    public ResponseEntity<?> getAllParty() {
+        List<UserEntity> parties = repository.findAllByState(1);
+
+        List<String> uniquePartyNames = parties.stream()
+                .map(UserEntity::getPartyName)
+                .distinct()
+                .toList();
+        List<UserResponse> response = new ArrayList<>();
+        for (String s : uniquePartyNames){
+
+            response.add(getBalance(s));
+        }
+        return ResponseEntity.ok(response);
     }
 
     @Override
     public ResponseEntity<?> addUser(UserRequest request) {
         String trimmedUserName = StringUtils.trimWhitespace(request.getUserName());
+        String trimmedPartyName = StringUtils.trimWhitespace(request.getPartyName());
 
         if (!StringUtils.hasText(trimmedUserName)) {
             throw new RuntimeException("User name is empty");
         }
 
-        Optional<UserEntity> optionalUser = repository.findFirstByUserName(trimmedUserName);
+        Optional<UserEntity> optionalUser = repository.findFirstByUserNameAndPartyName(trimmedUserName,trimmedPartyName);
         UserEntity user = optionalUser.orElseGet(UserEntity::new);
         user.setUserName(trimmedUserName);
+        user.setPartyName(request.getPartyName());
         user.setMoney(request.getGiven());
         user.setState(1);
         repository.save(user);
@@ -83,19 +135,4 @@ public class UserServiceImpl implements UserService {
         throw new RuntimeException("userId not found");
     }
 
-    public List<UserDto> entitiesToDtos(List<UserEntity> entities) {
-        List<UserDto> collect = entities.stream()
-                .map((UserEntity entity) -> entityToDto(entity))
-                .collect(Collectors.toList());
-        return collect;
-    }
-
-    public UserDto entityToDto(UserEntity entity) {
-        UserDto dto = new UserDto();
-        Optional.ofNullable(entity.getUserName()).ifPresent(dto::setUserName);
-        Optional.ofNullable(entity.getMoney()).ifPresent(dto::setMoneyGive);
-        Optional.ofNullable(entity.getNeedGive()).ifPresent(dto::setMoneyMostReturn);
-        Optional.ofNullable(entity.getNeedTo()).ifPresent(dto::setMoneyNeed);
-        return dto;
-    }
 }

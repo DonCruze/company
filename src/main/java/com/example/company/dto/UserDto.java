@@ -2,10 +2,12 @@ package com.example.company.dto;
 
 import lombok.Data;
 
+import java.util.Map;
+
 @Data
 public class UserDto {
     private String userName;
-    private Long moneyGive;
-    private Long moneyNeed;
-    private Long moneyMostReturn;
+    private Long given;
+    private Map<String,Long> needTo;
+    private Map<String,Long> needGive;
 }

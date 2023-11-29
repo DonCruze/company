@@ -15,9 +15,14 @@ public class UserController {
 
     private final UserService userService;
 
-    @GetMapping()
-    public ResponseEntity<?> getBalance() {
-        return userService.getBalance();
+    @GetMapping("/{name}")
+    public ResponseEntity<?> getOneParty(@PathVariable String name) {
+        return userService.getBalanceParty(name);
+    }
+
+    @GetMapping("/")
+    public ResponseEntity<?> getAllParty() {
+        return userService.getAllParty();
     }
 
     @PostMapping()
